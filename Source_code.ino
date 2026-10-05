@@ -39,6 +39,9 @@ const long Lf_re_interval = 6000;
 unsigned long dual_indicating_millis = 0;
 const long dual_indicating_interval = 6000;
 
+unsigned long code_red_millis = 0;
+const long code_red_interval = 6000;
+
 
 void setup() {
 
