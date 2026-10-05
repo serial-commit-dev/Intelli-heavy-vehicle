@@ -28,10 +28,10 @@ void setup() {
 
   pingTimer = millis(); //Initializing Start timer
 
-  pinMode(OUTPUT, green_indicator);
-  pinMode(OUTPUT, left_red_indicator);
-  pinMode(OUTPUT, right_red_indicator);
-  pinMode(OUTPUT, rear_red_indicator);
+  pinMode(green_indicator, OUTPUT);
+  pinMode(left_red_indicator, OUTPUT);
+  pinMode(right_red_indicator, OUTPUT;
+  pinMode(rear_red_indicator,OUTPUT);
 
 
 }
@@ -104,9 +104,9 @@ void code_red(){
   digitalWrite(right_red_indicator, HIGH);
 
   digitalWrite(rear_red_indicator, LOW);    //Blinking of rear LED on dashboard
-  digitalWrite(right_red_indicator, HIGH);
-  digitalWrite(right_red_indicator, LOW);
-  digitalWrite(right_red_indicator, HIGH);
+  digitalWrite(rear_red_indicator, HIGH);
+  digitalWrite(rear_red_indicator, LOW);
+  digitalWrite(rear_red_indicator, HIGH);
 
 }
 
