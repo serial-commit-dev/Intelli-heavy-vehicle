@@ -21,14 +21,14 @@ int distances[SONAR_NUM] = {0, 0, 0};
   unsigned long pingTimer = 0;
   uint8_t currentSensor = 0;
 
-unsigned long right_millis = 0;
+unsigned long previous_millis = 0;
 const long right_interval = 6000;
 
 unsigned long left_millis = 0;
 const long left_interval = 6000;
 
 unsigned long rear_millis = 0;
-const long left_interval = 6000;
+const long rear_interval = 6000;
 
 unsigned long Rg_re_millis = 0;
 const long Rg_re_interval = 6000;
