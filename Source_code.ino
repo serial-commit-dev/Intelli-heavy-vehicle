@@ -1,57 +1,71 @@
 #include <NewPing.h>
 
-#define SONAR_NUM 3   // Number of sensors
-#define Max_Dist 400
+#define SONAR_NUM 3   // number of sensors
+#define Max_Dist 200
 #define PING_INTERVAL 33
-#define OBSTACLE_THRESHOLD 200 // Standard obstacle detection threshold in cm
 
-// Fixed pin assignments: Sensor 3 changed from (6,7) to (6,13) to avoid conflict with green_indicator on Pin 8
 NewPing sonar[SONAR_NUM] = {
-  NewPing(2, 3, Max_Dist), // Sensor 0: Left
-  NewPing(4, 5, Max_Dist), // Sensor 1: Rear / Center
-  NewPing(6, 13, Max_Dist) // Sensor 2: Right
+  NewPing(2, 3, Max_Dist), // Sensor 1: Left
+  NewPing(4, 5, Max_Dist), // Sensor 2: Center/Rear
+  NewPing(6, 7, Max_Dist)  // Sensor 3: Right
 };
 
-int green_indicator = 8;
-int left_red_indicator = 9;
+int green_indicator     = 8;
+int left_red_indicator  = 9;
 int right_red_indicator = 10;
-int rear_red_indicator = 11;
-int buzzer = 12;
+int rear_red_indicator  = 11;
 
 int distances[SONAR_NUM] = {0, 0, 0};
 
 unsigned long pingTimer = 0;
-uint8_t currentSensor = 0;
+uint8_t currentSensor   = 0;
 
-// Non-blocking LED timing variables
+// Global timestamps for alert persistence
+unsigned long previous_millis        = 0; // Left timer
+unsigned long left_millis            = 0; // Right timer
+unsigned long rear_millis            = 0; // Rear timer
+unsigned long dual_millis            = 0; // Dual (Left+Right) timer
+unsigned long Rg_re_millis           = 0; // Right+Rear timer
+unsigned long Lf_re_millis           = 0; // Left+Rear timer
+unsigned long code_red_millis        = 0; // All blocked timer
+
+const long alert_interval = 6000; // 6-second active alert window
+
+// Global non-blocking blink clock
 unsigned long blinkTimer = 0;
-const unsigned long BLINK_INTERVAL = 250; // 250ms toggle for visible blinking
+const long blink_interval = 250; // Flash rate (250ms ON / 250ms OFF)
 bool blinkState = false;
-
-
-//////////////////////////////////////////////////////////////////////////////////////////////////////
-unsigned long = previous_millis = 0; //Estimated time for to take-off
-const long intervals = 12000;
-
-
 
 void setup() {
   Serial.begin(9600);
   Serial.println("Initializing 3 Ultrasonic Sensors...");
 
-  pingTimer = millis();
+  pingTimer = millis(); // Initializing Start timer
 
   pinMode(green_indicator, OUTPUT);
   pinMode(left_red_indicator, OUTPUT);
   pinMode(right_red_indicator, OUTPUT);
   pinMode(rear_red_indicator, OUTPUT);
-  pinMode(buzzer, OUTPUT);
+
+  // Default state: Safe ON, hazards OFF
+  digitalWrite(green_indicator, HIGH);
+  digitalWrite(left_red_indicator, LOW);
+  digitalWrite(right_red_indicator, LOW);
+  digitalWrite(rear_red_indicator, LOW);
 }
 
 void loop() {
-  // Non-blocking ping interval check
-  if (millis() - pingTimer >= PING_INTERVAL) {
-    pingTimer = millis();
+  unsigned long current_millis = millis();
+
+  // Non-blocking 250ms clock for smooth LED flashing
+  if (current_millis - blinkTimer >= blink_interval) {
+    blinkTimer = current_millis;
+    blinkState = !blinkState;
+  }
+
+  // Interleaved non-blocking sonar pings
+  if (current_millis - pingTimer >= PING_INTERVAL) {
+    pingTimer = current_millis;
 
     int reading = sonar[currentSensor].ping_cm();
     distances[currentSensor] = (reading == 0) ? Max_Dist : reading;
@@ -62,92 +76,103 @@ void loop() {
     }
   }
 
-  // Non-blocking blink clock for indicators
-  if (millis() - blinkTimer >= BLINK_INTERVAL) {
-    blinkTimer = millis();
-    blinkState = !blinkState;
-  }
-  
   processObstacleTasks();
 }
 
-void processObstacleTasks(){
-  // Updated threshold from <2 to <OBSTACLE_THRESHOLD (20cm) for realistic detection
+void processObstacleTasks() {
   bool leftBlocked  = (distances[0] < 200);
   bool rearBlocked  = (distances[1] < 200);
   bool rightBlocked = (distances[2] < 200);
 
-   unsigned long current_millis = millis();  
+  unsigned long current_millis = millis();
 
-  if (leftBlocked && !rightBlocked && !rearBlocked && current_millis - previous_millis >= intervals) {   
-    previous_millis = current_millis;
-      left_indicator();
-    }  
-    
-  } else if (!leftBlocked && rightBlocked && !rearBlocked && current_millis - right_indicating_duration >= right_interval) {
-    
-     
+  // Stamping timestamps when sensors detect obstacles
+  if (leftBlocked && !rightBlocked && !rearBlocked) previous_millis = current_millis;
+  if (!leftBlocked && rightBlocked && !rearBlocked)  left_millis     = current_millis;
+  if (!leftBlocked && !rightBlocked && rearBlocked)  rear_millis     = current_millis;
+  if (leftBlocked && rightBlocked && !rearBlocked)   dual_millis     = current_millis;
+  if (!leftBlocked && rightBlocked && rearBlocked)   Rg_re_millis    = current_millis;
+  if (leftBlocked && !rightBlocked && rearBlocked)   Lf_re_millis    = current_millis;
+  if (leftBlocked && rightBlocked && rearBlocked)    code_red_millis = current_millis;
+
+  // Check 6-second window (< alert_interval)
+  if (previous_millis > 0 && (current_millis - previous_millis < alert_interval)) {
+    left_indicator();
+  }
+  else if (left_millis > 0 && (current_millis - left_millis < alert_interval)) {
     right_indicator();
-  } else if (!leftBlocked && !rightBlocked && rearBlocked) {
+  }
+  else if (rear_millis > 0 && (current_millis - rear_millis < alert_interval)) {
     rear_indicator();
-  } else if (leftBlocked && rightBlocked && !rearBlocked) {
+  }
+  else if (dual_millis > 0 && (current_millis - dual_millis < alert_interval)) {
     dual_indicator();
-  } else if (!leftBlocked && rightBlocked && rearBlocked) {
+  }
+  else if (Rg_re_millis > 0 && (current_millis - Rg_re_millis < alert_interval)) {
     Rg_re_indicator();
-  } else if (leftBlocked && !rightBlocked && rearBlocked) {
+  }
+  else if (Lf_re_millis > 0 && (current_millis - Lf_re_millis < alert_interval)) {
     Lf_re_indicator();
-  } else if (!leftBlocked && !rightBlocked && !rearBlocked) {  
+  }
+  else if (code_red_millis > 0 && (current_millis - code_red_millis < alert_interval)) {
+    code_red();
+  }
+  else {
+    // All clear: Green LED ON, all hazard LEDs OFF
     digitalWrite(green_indicator, HIGH);
-  } else if (leftBlocked && rightBlocked && rearBlocked) {    
-    code_red();                                  
+    digitalWrite(left_red_indicator, LOW);
+    digitalWrite(right_red_indicator, LOW);
+    digitalWrite(rear_red_indicator, LOW);
   }
 }
 
+// ==========================================
+// YOUR INDICATOR FUNCTIONS (Non-Blocking)
+// ==========================================
 
-
-void dual_indicator(){
+void left_indicator() {
   digitalWrite(green_indicator, LOW);
-  digitalWrite(left_red_indicator, blinkState ? HIGH : LOW);
-  digitalWrite(right_red_indicator, blinkState ? HIGH : LOW);
-  digitalWrite(rear_red_indicator, LOW);
-}
-
-void code_red(){
-  digitalWrite(green_indicator, LOW);
-  digitalWrite(left_red_indicator, blinkState ? HIGH : LOW);
-  digitalWrite(right_red_indicator, blinkState ? HIGH : LOW);
-  digitalWrite(rear_red_indicator, blinkState ? HIGH : LOW);
-}
-
-void left_indicator(){
-  digitalWrite(green_indicator, LOW);
-  digitalWrite(left_red_indicator, blinkState ? HIGH : LOW);
   digitalWrite(right_red_indicator, LOW);
   digitalWrite(rear_red_indicator, LOW);
+  digitalWrite(left_red_indicator, blinkState ? HIGH : LOW);
 }
 
-void right_indicator(){
+void right_indicator() {
   digitalWrite(green_indicator, LOW);
   digitalWrite(left_red_indicator, LOW);
-  digitalWrite(right_red_indicator, blinkState ? HIGH : LOW);
   digitalWrite(rear_red_indicator, LOW);
+  digitalWrite(right_red_indicator, blinkState ? HIGH : LOW);
 }
 
-void rear_indicator(){
+void rear_indicator() {
   digitalWrite(green_indicator, LOW);
   digitalWrite(left_red_indicator, LOW);
   digitalWrite(right_red_indicator, LOW);
   digitalWrite(rear_red_indicator, blinkState ? HIGH : LOW);
 }
 
-void Lf_re_indicator(){
+void dual_indicator() {
+  digitalWrite(green_indicator, LOW);
+  digitalWrite(rear_red_indicator, LOW);
+  digitalWrite(left_red_indicator, blinkState ? HIGH : LOW);
+  digitalWrite(right_red_indicator, blinkState ? HIGH : LOW);
+}
+
+void code_red() {
   digitalWrite(green_indicator, LOW);
   digitalWrite(left_red_indicator, blinkState ? HIGH : LOW);
-  digitalWrite(right_red_indicator, LOW);
+  digitalWrite(right_red_indicator, blinkState ? HIGH : LOW);
   digitalWrite(rear_red_indicator, blinkState ? HIGH : LOW);
 }
 
-void Rg_re_indicator(){
+void Lf_re_indicator() {
+  digitalWrite(green_indicator, LOW);
+  digitalWrite(right_red_indicator, LOW);
+  digitalWrite(left_red_indicator, blinkState ? HIGH : LOW);
+  digitalWrite(rear_red_indicator, blinkState ? HIGH : LOW);
+}
+
+void Rg_re_indicator() {
   digitalWrite(green_indicator, LOW);
   digitalWrite(left_red_indicator, LOW);
   digitalWrite(right_red_indicator, blinkState ? HIGH : LOW);
