@@ -21,6 +21,25 @@ int distances[SONAR_NUM] = {0, 0, 0};
   unsigned long pingTimer = 0;
   uint8_t currentSensor = 0;
 
+unsigned long right_millis = 0;
+const long right_interval = 6000;
+
+unsigned long left_millis = 0;
+const long left_interval = 6000;
+
+unsigned long rear_millis = 0;
+const long left_interval = 6000;
+
+unsigned long Rg_re_millis = 0;
+const long Rg_re_interval = 6000;
+
+unsigned long Lf_re_millis = 0;
+const long Lf_re_interval = 6000;
+
+unsigned long dual_indicating_millis = 0;
+const long dual_indicating_interval = 6000;
+
+
 void setup() {
 
   Serial.begin(9600);
