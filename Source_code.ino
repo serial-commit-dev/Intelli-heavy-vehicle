@@ -7,14 +7,14 @@
 NewPing sonar[SONAR_NUM] = {
   NewPing(2, 3, Max_Dist), // Sensor 1: Left
   NewPing(4, 5, Max_Dist), // Sensor 2: Center
-  NewPing(5, 6, Max_Dist)  // Sensor 3: right
+  NewPing(6, 7, Max_Dist)  // Sensor 3: right
 };
 
 
-int green_indicator = 7;
-int left_red_indicator = 8;
-int right_red_indicator = 9;
-int rear_red_indicator = 10;
+int green_indicator = 8;
+int left_red_indicator = 9;
+int right_red_indicator = 10;
+int rear_red_indicator = 11;
 
 int distances[SONAR_NUM] = {0, 0, 0};
 
@@ -39,9 +39,6 @@ const long Lf_re_interval = 6000;
 unsigned long dual_indicating_millis = 0;
 const long dual_indicating_interval = 6000;
 
-unsigned long code_red_millis = 0;
-const long code_red_interval = 6000;
-
 
 void setup() {
 
@@ -52,7 +49,7 @@ void setup() {
 
   pinMode(green_indicator, OUTPUT);
   pinMode(left_red_indicator, OUTPUT);
-  pinMode(right_red_indicator, OUTPUT;
+  pinMode(right_red_indicator, OUTPUT);
   pinMode(rear_red_indicator,OUTPUT);
 
 
@@ -76,25 +73,40 @@ void loop() {
 }
 
 void processObstacleTasks(){
-  bool leftBlocked = (distances[0] < 2);
-  bool rearBlocked = (distances[1] < 2);
-  bool rightBlocked = (distances[2] < 2);
-
-  if (leftBlocked && !rightBlocked && !rearBlocked) {   
+  bool leftBlocked = (distances[0] < 200);
+  bool rearBlocked = (distances[1] < 200);
+  bool rightBlocked = (distances[2] < 200);
+  
+  unsigned long current_millis = millis();
+  if (leftBlocked && !rightBlocked && !rearBlocked && (current_millis - previous_millis >= right_interval)) { 
+    previous_millis = current_millis;  
     left_indicator();
-  }else if (!leftBlocked && rightBlocked && !rearBlocked) {
+
+  }else if (!leftBlocked && rightBlocked && !rearBlocked && (current_millis - left_millis >= left_interval)) {
+    left_millis = current_millis;
     right_indicator();
-  }else if (!leftBlocked && !rightBlocked && rearBlocked){
+
+  }else if (!leftBlocked && !rightBlocked && rearBlocked && (current_millis - rear_millis >= rear_interval)){
+    rear_millis = current_millis;
     rear_indicator();
-  }else if (leftBlocked && rightBlocked && !rearBlocked) {
+
+  }else if (leftBlocked && rightBlocked && !rearBlocked && (current_millis - dual_millis >= dual_indicating_interval)) {
+    dual_millis = current_millis;
     dual_indicator();
-  }else if (!leftBlocked && rightBlocked && rearBlocked) {
+
+  }else if (!leftBlocked && rightBlocked && rearBlocked && (current_millis - Rg_re_millis >= Rg_re_interval)) {
+    Rg_re_millis = current_millis;
     Rg_re_indicator();
-  }else if (leftBlocked && !rightBlocked && rearBlocked) {
+
+  }else if (leftBlocked && !rightBlocked && rearBlocked && (current_millis - Lf_re_millis >= Lf_re_interval)) {
+    Lf_re_millis = current_millis;
     Lf_re_indicator();
+
   }else if (!leftBlocked && !rightBlocked && !rearBlocked) {  
-    digitalWrite(green_indicator, HIGH);                      
-  }else if (leftBlocked && rightBlocked && rearBlocked) {    
+    digitalWrite(green_indicator, HIGH);       
+
+  }else if (leftBlocked && rightBlocked && rearBlocked && (current_millis - code_red_millis >= code_red_interval)) {
+    code_red_millis = current_millis;    
     code_red();                                  
   }
 }
